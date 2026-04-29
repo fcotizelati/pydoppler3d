@@ -72,13 +72,43 @@ def plot_average_spectrum(
     """Save a PyDoppler-style average spectrum and line-window diagnostic."""
 
     plt = _pyplot()
+    wavelength = np.asarray(wavelength, dtype=float)
+    average_flux = np.asarray(average_flux, dtype=float)
+    continuum = np.asarray(continuum, dtype=float)
     output = Path(output)
     fig, axes = plt.subplots(2, 1, figsize=(6.57, 8.57), constrained_layout=True)
     axes[0].plot(wavelength, average_flux, color="black", lw=1.0)
-    axes[0].plot(wavelength, continuum, color="crimson", lw=1.2, label="Continuum fit")
     if continuum_band is not None:
-        for value in continuum_band:
+        band = tuple(float(value) for value in continuum_band)
+        local = (wavelength >= band[0]) & (wavelength <= band[3])
+        axes[0].axvspan(
+            band[0],
+            band[1],
+            color="0.85",
+            alpha=0.55,
+            label="Continuum windows",
+        )
+        axes[0].axvspan(band[2], band[3], color="0.85", alpha=0.55)
+        axes[0].axvspan(
+            band[1],
+            band[2],
+            color="tab:orange",
+            alpha=0.10,
+            label="Line window",
+        )
+        axes[0].plot(
+            wavelength[local],
+            continuum[local],
+            color="crimson",
+            lw=1.4,
+            label="Local continuum fit",
+        )
+        for value in band:
             axes[0].axvline(value, color="0.3", ls="--", lw=0.8)
+        margin = 0.12 * (band[3] - band[0])
+        axes[0].set_xlim(band[0] - margin, band[3] + margin)
+    else:
+        axes[0].plot(wavelength, continuum, color="crimson", lw=1.2, label="Continuum fit")
     axes[0].set_xlabel(r"Wavelength / $\AA$")
     axes[0].set_ylabel("Input flux")
     axes[0].legend(loc="best")

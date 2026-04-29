@@ -243,6 +243,10 @@
   plot_trails(prepared.spectra, "output_images/Trail.png", cycles=2)
   ```
 
+  The continuum diagnostic is intentionally local: the fitted continuum is only
+  displayed across the sidebands and line window used for the He II 4686
+  extraction, not extrapolated across the full optical spectrum.
+
   <p align="middle">
      <img src="pydoppler3d/test_data/output_images/Average_Spec.png" width="350" height="450" />
      <img src="pydoppler3d/test_data/output_images/Trail.png" width="350" height="450" />
