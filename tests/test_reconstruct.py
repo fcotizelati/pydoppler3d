@@ -39,7 +39,6 @@ def test_mem_reconstruct_lbfgsb_improves_objective_on_small_problem():
             iterations=10,
             alpha=1e-5,
             default="gaussian",
-            optimizer="lbfgsb",
             default_updates=1,
         ),
         inclination_deg=70.0,
@@ -50,26 +49,3 @@ def test_mem_reconstruct_lbfgsb_improves_objective_on_small_problem():
     assert result.objective_history is not None
     assert result.objective_history[-1] <= result.objective_history[0]
     assert result.chi2_history[-1] <= result.chi2_history[0]
-
-
-def test_mem_reconstruct_projected_gradient_fallback_improves_objective():
-    grid, phases, velocity_axis, profiles, initial = _small_synthetic_problem()
-    result = mem_reconstruct(
-        profiles,
-        grid,
-        phases,
-        velocity_axis,
-        initial=initial,
-        config=MemConfig(
-            iterations=8,
-            step=1e-2,
-            alpha=1e-5,
-            default="gaussian",
-            optimizer="projected_gradient",
-            adaptive_step=True,
-        ),
-        inclination_deg=70.0,
-    )
-
-    assert result.objective_history is not None
-    assert result.objective_history[-1] <= result.objective_history[0]

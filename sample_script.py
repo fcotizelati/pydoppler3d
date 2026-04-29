@@ -87,13 +87,11 @@ def main() -> None:
         error=error,
         config=MemConfig(
             iterations=45,
-            step=2e-3,
             alpha=5e-4,
             default="squeezed",
             default_fwhm_kms=200.0,
             squeeze_pull=0.45,
             squeeze_sigma_vz_kms=260.0,
-            optimizer="lbfgsb",
             default_updates=2,
         ),
         inclination_deg=inclination_deg,

@@ -39,8 +39,7 @@
   PyDoppler3D is 100% Python source. It has no custom C++ extension and does not
   require a Fortran compiler. The numerical work is done with NumPy and SciPy.
   The main inversion uses SciPy's L-BFGS-B optimizer with the package's exact
-  forward and transpose projection operators; a projected-gradient fallback is
-  retained for debugging and small educational tests.
+  forward and transpose projection operators.
 
   Python >=3.10 is required. The package is tested through Python 3.14.
 
@@ -107,13 +106,11 @@
       error=spectra.error / scale,
       config=MemConfig(
           iterations=45,
-          step=2e-3,
           alpha=5e-4,
           default="squeezed",
           default_fwhm_kms=200.0,
           squeeze_pull=0.45,
           squeeze_sigma_vz_kms=260.0,
-          optimizer="lbfgsb",
           default_updates=2,
       ),
       inclination_deg=50.0,
@@ -276,13 +273,11 @@
       error=spectra.error / scale,
       config=MemConfig(
           iterations=45,
-          step=2e-3,
           alpha=5e-4,
           default="squeezed",
           default_fwhm_kms=200.0,
           squeeze_pull=0.45,
           squeeze_sigma_vz_kms=260.0,
-          optimizer="lbfgsb",
           default_updates=2,
       ),
       inclination_deg=50.0,
@@ -393,14 +388,12 @@
   ```python
   MemConfig(
       iterations=100,          # maximum optimizer iterations
-      step=1e-5,               # projected-gradient step, ignored by L-BFGS-B
       alpha=1e-3,              # entropy weight
       target_chi2=None,        # optional stopping target
       default="squeezed",      # "gaussian" or "squeezed"
       default_fwhm_kms=200.0,  # default-map smoothing scale
       squeeze_pull=0.5,        # strength of Vz squeezing
       squeeze_sigma_vz_kms=100.0,
-      optimizer="lbfgsb",      # "lbfgsb" or "projected_gradient"
       default_updates=2,       # MEM-style default-map refreshes
   )
   ```

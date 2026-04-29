@@ -40,8 +40,6 @@ def test_reconstruct_main_writes_doppler_map(tmp_path):
             "2",
             "--alpha",
             "1e-5",
-            "--optimizer",
-            "lbfgsb",
             "--default-updates",
             "1",
             "--inclination",

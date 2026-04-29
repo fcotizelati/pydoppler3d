@@ -25,7 +25,7 @@ def info_main(argv: list[str] | None = None) -> None:
 
 
 def reconstruct_main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Run pure-Python MEM-style reconstruction.")
+    parser = argparse.ArgumentParser(description="Run pure-Python maximum-entropy reconstruction.")
     parser.add_argument("input", type=Path, help="Input TrailedSpectra NPZ.")
     parser.add_argument("output", type=Path, help="Output DopplerMap NPZ.")
     parser.add_argument("--nxy", type=int, default=41)
@@ -34,14 +34,7 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--vlim-z", type=float, default=1000.0)
     parser.add_argument("--iterations", type=int, default=50)
     parser.add_argument("--alpha", type=float, default=1e-3)
-    parser.add_argument("--step", type=float, default=1e-5)
     parser.add_argument("--inclination", type=float, default=75.0)
-    parser.add_argument(
-        "--optimizer",
-        choices=["lbfgsb", "projected_gradient"],
-        default="lbfgsb",
-        help="Maximum-entropy optimizer to use.",
-    )
     parser.add_argument(
         "--default-updates",
         type=int,
@@ -67,8 +60,6 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
         config=MemConfig(
             iterations=args.iterations,
             alpha=args.alpha,
-            step=args.step,
-            optimizer=args.optimizer,
             default_updates=args.default_updates,
             target_chi2=args.target_chi2,
         ),

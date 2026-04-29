@@ -13,26 +13,23 @@ from .geometry import VelocityGrid3D
 from .project import back_project, project_cube
 
 DefaultKind = Literal["gaussian", "squeezed"]
-OptimizerKind = Literal["lbfgsb", "projected_gradient"]
 
 
 @dataclass(frozen=True)
 class MemConfig:
     """Configuration for the maximum-entropy Doppler-map optimizer.
 
-    The default path uses SciPy's bounded L-BFGS-B optimizer with analytic
-    gradients from the forward projector and its transpose. This is still not a
-    drop-in clone of MEMSYS, but it follows the same numerical structure needed
-    for serious maximum-entropy Doppler tomography:
+    The solver uses SciPy's bounded L-BFGS-B optimizer with analytic gradients
+    from the forward projector and its transpose. This is still not a drop-in
+    clone of MEMSYS, but it follows the same numerical structure needed for
+    serious maximum-entropy Doppler tomography:
 
     ``0.5 * chi2 - alpha * entropy(image, default)``
 
-    with non-negativity bounds. The legacy projected-gradient path remains
-    available for small transparent tests and debugging.
+    with non-negativity bounds.
     """
 
     iterations: int = 100
-    step: float = 1e-5
     alpha: float = 1e-3
     target_chi2: float | None = None
     default: DefaultKind = "squeezed"
@@ -40,9 +37,7 @@ class MemConfig:
     squeeze_pull: float = 0.5
     squeeze_sigma_vz_kms: float = 100.0
     positivity_floor: float = 1e-12
-    adaptive_step: bool = True
     tolerance: float = 1e-7
-    optimizer: OptimizerKind = "lbfgsb"
     default_updates: int = 2
     lbfgsb_history: int = 10
     max_line_search: int = 20
@@ -287,87 +282,6 @@ def _mem_reconstruct_lbfgsb(
     )
 
 
-def _mem_reconstruct_projected_gradient(
-    image: np.ndarray,
-    data: np.ndarray,
-    sigma: np.ndarray,
-    weights: np.ndarray,
-    grid: VelocityGrid3D,
-    phases: np.ndarray,
-    velocity_axis: np.ndarray,
-    config: MemConfig,
-    *,
-    inclination_deg: float,
-    gamma: float,
-) -> ReconstructionResult:
-    chi2_history: list[float] = []
-    objective_history: list[float] = []
-    entropy_history: list[float] = []
-    step = float(config.step)
-
-    def evaluate(candidate: np.ndarray):
-        default = _default_map(candidate, grid, config)
-        objective, grad, chi2, ent = _objective_and_gradient(
-            candidate,
-            default,
-            data,
-            sigma,
-            weights,
-            grid,
-            phases,
-            velocity_axis,
-            config,
-            inclination_deg=inclination_deg,
-            gamma=gamma,
-        )
-        return default, objective, grad, chi2, ent
-
-    _default, objective, grad, chi2, ent = evaluate(image)
-    chi2_history.append(chi2)
-    entropy_history.append(ent)
-    objective_history.append(objective)
-
-    for _ in range(int(config.iterations)):
-        if config.target_chi2 is not None and chi2 <= config.target_chi2:
-            break
-
-        trial_step = step
-        accepted = False
-        for _attempt in range(20):
-            candidate = np.clip(image - trial_step * grad, config.positivity_floor, None)
-            _trial_default, trial_objective, trial_grad, trial_chi2, trial_ent = evaluate(
-                candidate
-            )
-            if not config.adaptive_step or trial_objective <= objective:
-                accepted = True
-                break
-            trial_step *= 0.5
-
-        if not accepted:
-            break
-
-        improvement = objective - trial_objective
-        image = candidate
-        objective = trial_objective
-        grad = trial_grad
-        chi2 = trial_chi2
-        ent = trial_ent
-        step = trial_step * 1.05 if config.adaptive_step else trial_step
-
-        chi2_history.append(chi2)
-        entropy_history.append(ent)
-        objective_history.append(objective)
-        if abs(improvement) <= config.tolerance * max(1.0, abs(objective)):
-            break
-
-    return ReconstructionResult(
-        image=np.clip(image, config.positivity_floor, None),
-        chi2_history=np.asarray(chi2_history, dtype=float),
-        objective_history=np.asarray(objective_history, dtype=float),
-        entropy_history=np.asarray(entropy_history, dtype=float),
-    )
-
-
 def mem_reconstruct(
     profiles: np.ndarray,
     grid: VelocityGrid3D,
@@ -396,33 +310,18 @@ def mem_reconstruct(
     weights = 1.0 / np.square(sigma)
     image = _initial_image(data, grid, initial, config)
 
-    if config.optimizer == "lbfgsb":
-        return _mem_reconstruct_lbfgsb(
-            image,
-            data,
-            sigma,
-            weights,
-            grid,
-            phases,
-            velocity_axis,
-            config,
-            inclination_deg=inclination_deg,
-            gamma=gamma,
-        )
-    if config.optimizer == "projected_gradient":
-        return _mem_reconstruct_projected_gradient(
-            image,
-            data,
-            sigma,
-            weights,
-            grid,
-            phases,
-            velocity_axis,
-            config,
-            inclination_deg=inclination_deg,
-            gamma=gamma,
-        )
-    raise ValueError(f"unsupported optimizer: {config.optimizer!r}")
+    return _mem_reconstruct_lbfgsb(
+        image,
+        data,
+        sigma,
+        weights,
+        grid,
+        phases,
+        velocity_axis,
+        config,
+        inclination_deg=inclination_deg,
+        gamma=gamma,
+    )
 
 
 def landweber_reconstruct(
