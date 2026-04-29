@@ -394,7 +394,7 @@ def plot_map_volume_html(
                 isomax=isomax,
                 opacity=opacity,
                 surface_count=int(surface_count),
-                colorscale="Viridis",
+                colorscale="Magma",
                 caps={"x_show": False, "y_show": False, "z_show": False},
             )
         ]
@@ -420,7 +420,7 @@ def save_volume_scatter_preview(
     percentile: float = 99.9,
     point_percentile: float = 99.85,
     max_points: int = 90,
-    cmap: str = "viridis",
+    cmap: str = "magma",
     dpi: int = 180,
 ) -> Path:
     """Save a static 3D overview with transparent projections and peak voxels."""
