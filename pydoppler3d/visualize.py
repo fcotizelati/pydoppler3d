@@ -417,13 +417,13 @@ def save_volume_scatter_preview(
     doppler_map: DopplerMap,
     output: str | Path,
     *,
-    percentile: float = 99.5,
+    percentile: float = 99.9,
     point_percentile: float = 99.85,
     max_points: int = 90,
-    cmap: str = "magma_r",
+    cmap: str = "viridis",
     dpi: int = 180,
 ) -> Path:
-    """Save a static 3D overview with orthogonal projections and peak voxels."""
+    """Save a static 3D overview with transparent projections and peak voxels."""
 
     plt = _pyplot()
     output = Path(output)
@@ -443,9 +443,10 @@ def save_volume_scatter_preview(
     cmap_obj = plt.get_cmap(cmap)
     normalizer = plt.Normalize(vmin=vmin, vmax=vmax)
 
-    def colors(values: np.ndarray, *, alpha: float) -> np.ndarray:
-        out = cmap_obj(normalizer(values))
-        out[..., -1] = alpha
+    def colors(values: np.ndarray, *, max_alpha: float) -> np.ndarray:
+        scaled = np.clip(normalizer(values), 0.0, 1.0)
+        out = cmap_obj(scaled)
+        out[..., -1] = max_alpha * (0.08 + 0.92 * scaled)
         return out
 
     vx, vy, vz = grid.mesh()
@@ -461,7 +462,7 @@ def save_volume_scatter_preview(
         xx,
         yy,
         np.full_like(xx, grid.vz[0]),
-        facecolors=colors(xy, alpha=0.72),
+        facecolors=colors(xy, max_alpha=0.72),
         rstride=1,
         cstride=1,
         linewidth=0,
@@ -474,7 +475,7 @@ def save_volume_scatter_preview(
         xx,
         np.full_like(xx, grid.vy[-1]),
         zz,
-        facecolors=colors(xz, alpha=0.58),
+        facecolors=colors(xz, max_alpha=0.58),
         rstride=1,
         cstride=1,
         linewidth=0,
@@ -487,7 +488,7 @@ def save_volume_scatter_preview(
         np.full_like(yy, grid.vx[0]),
         yy,
         zz,
-        facecolors=colors(yz, alpha=0.58),
+        facecolors=colors(yz, max_alpha=0.58),
         rstride=1,
         cstride=1,
         linewidth=0,
@@ -525,7 +526,13 @@ def save_volume_scatter_preview(
 
     scalar = plt.cm.ScalarMappable(norm=normalizer, cmap=cmap_obj)
     scalar.set_array([])
-    fig.colorbar(scalar, ax=ax, shrink=0.72, pad=0.08, label="Map intensity")
+    fig.colorbar(
+        scalar,
+        ax=ax,
+        shrink=0.72,
+        pad=0.08,
+        label="Map intensity (percentile-clipped)",
+    )
     ax.set_xlabel("Vx (km/s)")
     ax.set_ylabel("Vy (km/s)")
     ax.set_zlabel("Vz (km/s)")

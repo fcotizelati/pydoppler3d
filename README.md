@@ -318,7 +318,8 @@
   For exploratory 3D inspection, use the static cube overview and the
   interactive HTML isosurface. The static preview shows three orthogonal
   maximum-intensity projections on the cube walls, plus only the brightest
-  compact voxels inside the cube:
+  compact voxels inside the cube. It uses a perceptually uniform, percentile-
+  clipped intensity scale with faint projection pixels made more transparent:
 
   ```python
   from pydoppler3d import plot_map_volume_html, save_volume_scatter_preview
