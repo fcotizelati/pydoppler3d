@@ -21,7 +21,8 @@ env/
 htmlcov/
 
 # Generated products
-output_images/
+/output_images/
+/pydoppler3d-workdir/
 *.fits
 *.fits.gz
 

@@ -1,0 +1,9 @@
+mcv                     # specList	- name of file containing list of spectra
+spectra                 # specDir	- name of folder containing list of spectra and spectra files
+    0                   # pmod		- period fold indicator (0 = orbital, 1 = spin)
+    1                   # fcol		- column number of spectrum file name in spectra list
+    2                   # pcol		- column number of phase value
+    0                   # dcol		- column number of phase interval (0 if not present)
+    1                   # wcol		- column number of wavelength in spectrum file
+    2                   # scol		- column number of flux in spectrum file
+    0.052368084         # dpha		- fixed phase interval

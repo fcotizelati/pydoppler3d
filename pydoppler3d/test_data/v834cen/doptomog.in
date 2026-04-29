@@ -1,0 +1,13 @@
+    0                   # iH		- type of likelihood function (0 = log, 1 = rms)
+    1                   # nrm		- normalise to flat dopmap (0 = no, 1 = yes)
+    5                   # nsw		- smearing width in default map
+    0                   # nmi		- max number of iterations
+    0                   # pri		- print control (0 = log and screen, 1 = log only)
+    0.003               # acc		- accuracy of convergence
+    0.100               # bfa		- baseline flux factor (fraction of average spectrum)
+    0.300               # blm		- minimum overall baseline added before normalisation
+    0.003               # alf		- alfa value
+    0.000               # amp		- amplitude of central absorption fudge
+    0.0e0               # wid		- width of central absorption fudge
+   72                   # np		- nr of pixels (in one direction)
+   10                   # nhp		- nr of half-phase maps

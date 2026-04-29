@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
 
+from .convolution import convolve_profiles_fft
 from .geometry import VelocityGrid3D, radial_velocity
 
 
@@ -72,9 +72,7 @@ def project_cube(
         _deposit_linear(profiles[iph], axis, vr, flux)
 
     if instrumental_fwhm is not None and instrumental_fwhm > 0:
-        dv = float(np.median(np.diff(axis)))
-        sigma_pix = float(instrumental_fwhm) / (2.0 * np.sqrt(2.0 * np.log(2.0)) * dv)
-        profiles = gaussian_filter1d(profiles, sigma=sigma_pix, axis=1, mode="nearest")
+        profiles = convolve_profiles_fft(profiles, axis, instrumental_fwhm)
 
     return profiles
 

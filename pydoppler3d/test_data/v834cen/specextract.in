@@ -1,0 +1,8 @@
+    0.000000E+00        # gam		- gamma velocity [m/s] to be subtracted
+ 4686.00                # w0		- laboratory wavelength of line [Angstroms]
+    0.00                # cw		- wavelength range around w0 to keep (0 to keep everything)
+   18.00                # dw		- wavelength range around w0 (w0 - dw < w < w0 + dw)
+    1.00                # df1		- dw factor for inner continuum range
+    3.00                # df2		- dw factor for outer continuum range
+    0                   # abl		- if 1, invert line (for absorption lines)
+    0                   # atm		- if 1, take out atmospheric absorption

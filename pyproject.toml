@@ -9,7 +9,7 @@ description = "Prototype 3D Doppler tomography tools for phase-resolved line pro
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE"]
 authors = [
   {name = "Francesco Coti Zelati"}
 ]
@@ -33,20 +33,54 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.6"]
-test = ["pytest>=7"]
+volume = ["plotly>=5.0"]
+fits = ["astropy>=5.0"]
+test = ["pytest>=7", "pytest-cov>=5"]
 lint = ["ruff>=0.6"]
-dev = ["build>=1.0", "pytest>=7", "ruff>=0.6", "matplotlib>=3.6"]
+dev = [
+  "astropy>=5.0",
+  "build>=1.0",
+  "pre-commit>=3.5",
+  "pytest>=7",
+  "pytest-cov>=5",
+  "ruff>=0.6",
+  "matplotlib>=3.6",
+  "plotly>=5.0",
+]
+
+[project.scripts]
+pydoppler3d-info = "pydoppler3d.cli:info_main"
+pydoppler3d-reconstruct = "pydoppler3d.cli:reconstruct_main"
+pydoppler3d-plot-trails = "pydoppler3d.cli:plot_trails_main"
+pydoppler3d-plot-map = "pydoppler3d.cli:plot_map_main"
+pydoppler3d-plot-volume = "pydoppler3d.cli:plot_volume_main"
 
 [project.urls]
 Homepage = "https://github.com/fcotizelati/pydoppler3d"
 "Source Code" = "https://github.com/fcotizelati/pydoppler3d"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pydoppler3d*"]
 
+[tool.setuptools.package-data]
+pydoppler3d = [
+  "test_data/ugem99/*",
+  "test_data/v834cen/*",
+  "test_data/v834cen/spectra/*",
+  "test_data/output_images/*.png",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.coverage.run]
+omit = [
+  "pydoppler3d/visualize.py",
+]
 
 [tool.ruff]
 target-version = "py310"

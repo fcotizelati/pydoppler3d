@@ -1,0 +1,44 @@
+PyDoppler3D Notice
+==================
+
+PyDoppler3D source code is distributed under the MIT license in LICENSE.
+
+Bundled Example Data
+--------------------
+
+This repository includes small example datasets solely for testing, examples,
+and reproducibility of the tutorial figures. These data are third-party
+research products and are not relicensed as PyDoppler3D source code.
+
+V834 Cen
+~~~~~~~~
+
+Path: pydoppler3d/test_data/v834cen
+
+The V834 Cen spectra and configuration files were taken from the doptomog
+archive distributed through CDS catalogue J/A+A/595/A47:
+
+  https://cdsarc.cds.unistra.fr/ftp/J/A+A/595/A47/
+
+Please cite:
+
+  Kotze, E. J., Potter, S. B., & McBride, V. A. 2016,
+  Astronomy & Astrophysics, 595, A47.
+
+The archived doptomog package states that its program source is distributed
+under the GNU General Public License. The spectra are retained here with their
+original provenance for example use; users should consult the CDS archive and
+the original paper before redistributing or using them in published analysis.
+
+U Gem
+~~~~~
+
+Path: pydoppler3d/test_data/ugem99
+
+The U Gem spectra are included as a compatibility example matching the classic
+PyDoppler tutorial data layout.
+
+Please cite:
+
+  Echevarria, J., de la Fuente, E., & Costero, R. 2007,
+  Astronomical Journal, 134, 262.

@@ -1,0 +1,14 @@
+   1                    # mCV		- magnetic cv indicator [0=no, 1=polar, 2=intermediate polar]
+   0.85                 # M1		- mass of primary in solar masses
+   0.154                # qm		- mass ratio M2/M1
+  50.00                 # inc		- inclination angle of the system
+   0.070497518          # Porb		- orbital period of the system
+   0.070497518          # Pspin		- spin period of the primary
+  45.00                 # azE		- azimuth angle at which ballistic stream ends
+   5.00                 # azMs		- azimuth angle at which magnetic connection starts
+  45.00                 # azMe		- azimuth angle at which magnetic connection ends
+  10.00                 # azMi		- azimuth angle increment
+  36.00                 # Psi		- magnetic axis azimuth
+  20.00                 # beta		- magnetic axis co-latitude
+   0.00                 # vDi		- absolute velocity at inner disc [10**3 km/s]
+   0                    # cmInd	 	- centre of mass indicator [0=use comS, 1=use wd]
