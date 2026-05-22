@@ -71,7 +71,7 @@ pydoppler3d = [
   "test_data/ugem99/*",
   "test_data/v834cen/*",
   "test_data/v834cen/spectra/*",
-  "test_data/output_images/*.png",
+  "test_data/output_images/*.pdf",
 ]
 
 [tool.pytest.ini_options]

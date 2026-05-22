@@ -22,8 +22,8 @@ from pydoppler3d import (
 )
 from pydoppler3d.pydoppler_compat import load_v834cen_dataset
 
-# Set to True to save figures and run without GUI windows.
-SAVE_PNGS = True
+# Set to True to save PDF figures and run without GUI windows.
+SAVE_PDFS = True
 # Set to True to display figures interactively at the end.
 SHOW_PLOTS = False
 
@@ -32,8 +32,18 @@ def main() -> None:
     workdir = Path.cwd() / "pydoppler3d-workdir"
     outdir = Path.cwd() / "output_images"
     outdir.mkdir(parents=True, exist_ok=True)
+    for stale_name in (
+        "Average_Spec.png",
+        "Trail.png",
+        "Doppler_Map.png",
+        "Doppler_Map_Projection.png",
+        "Doppler_Map_3D_Preview.png",
+        "Reconstruction.png",
+        "Residuals.png",
+    ):
+        (outdir / stale_name).unlink(missing_ok=True)
 
-    if SAVE_PNGS and not SHOW_PLOTS:
+    if SAVE_PDFS and not SHOW_PLOTS:
         os.environ.setdefault("MPLBACKEND", "Agg")
         os.environ.setdefault("MPLCONFIGDIR", str(workdir / ".mplconfig"))
 
@@ -49,12 +59,12 @@ def main() -> None:
         prepared.continuum,
         spectra.velocity,
         prepared.average_line_flux,
-        outdir / "Average_Spec.png",
+        outdir / "Average_Spec.pdf",
         continuum_band=prepared.continuum_band,
     )
     plot_trails(
         spectra,
-        outdir / "Trail.png",
+        outdir / "Trail.pdf",
         cmap="magma_r",
         cycles=2,
         title="V834 Cen He II 4686 trailed spectra",
@@ -120,19 +130,19 @@ def main() -> None:
 
     plot_map_slices(
         doppler_map,
-        outdir / "Doppler_Map.png",
+        outdir / "Doppler_Map.pdf",
         vz_values=[-900.0, -500.0, 0.0, 500.0, 900.0],
         cmap="magma_r",
     )
     plot_map_projection(
         doppler_map,
-        outdir / "Doppler_Map_Projection.png",
+        outdir / "Doppler_Map_Projection.pdf",
         method="sum",
         cmap="magma_r",
     )
     save_volume_scatter_preview(
         doppler_map,
-        outdir / "Doppler_Map_3D_Preview.png",
+        outdir / "Doppler_Map_3D_Preview.pdf",
     )
     plot_map_volume_html(
         doppler_map,
@@ -143,14 +153,14 @@ def main() -> None:
     plot_reconstruction(
         emission_spectra,
         model,
-        outdir / "Reconstruction.png",
+        outdir / "Reconstruction.pdf",
         cmap="magma_r",
         cycles=2,
     )
     plot_residuals(
         emission_spectra,
         model,
-        outdir / "Residuals.png",
+        outdir / "Residuals.pdf",
         cmap="magma_r",
         cycles=2,
     )

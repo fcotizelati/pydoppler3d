@@ -69,7 +69,7 @@
   ```
 
   This copies the bundled V834 Cen magnetic-CV data, prepares the spectra,
-  performs a small 3D reconstruction, and writes figures into `output_images/`.
+  performs a small 3D reconstruction, and writes PDF figures into `output_images/`.
 
   ### Quick start for automated workflows
 
@@ -117,7 +117,7 @@
   )
 
   doppler_map = DopplerMap(result.image, grid)
-  plot_map_slices(doppler_map, "output_images/Doppler_Map.png")
+  plot_map_slices(doppler_map, "output_images/Doppler_Map.pdf")
   ```
 
   ### Scope and physical conventions
@@ -237,10 +237,10 @@
       prepared.continuum,
       prepared.spectra.velocity,
       prepared.average_line_flux,
-      "output_images/Average_Spec.png",
+      "output_images/Average_Spec.pdf",
       continuum_band=prepared.continuum_band,
   )
-  plot_trails(prepared.spectra, "output_images/Trail.png", cycles=2)
+  plot_trails(prepared.spectra, "output_images/Trail.pdf", cycles=2)
   ```
 
   The continuum diagnostic is intentionally local: the fitted continuum is only
@@ -248,8 +248,8 @@
   extraction, not extrapolated across the full optical spectrum.
 
   <p align="middle">
-     <img src="pydoppler3d/test_data/output_images/Average_Spec.png" width="350" height="450" />
-     <img src="pydoppler3d/test_data/output_images/Trail.png" width="350" height="450" />
+     <img src="docs/readme_images/Average_Spec.svg" width="350" height="450" />
+     <img src="docs/readme_images/Trail.svg" width="350" height="450" />
   </p>
 
   ### Section 3.2: Run the 3D reconstruction
@@ -292,7 +292,7 @@
 
   The most useful publication-style view is a montage of `Vx-Vy` slices at
   selected `Vz` values. This is the closest analogue to the classic PyDoppler
-  `Doppler_Map.png`, because each panel is a normal 2D Doppler map at a fixed
+  `Doppler_Map.pdf`, because each panel is a normal 2D Doppler map at a fixed
   out-of-plane velocity.
 
   ```python
@@ -301,18 +301,18 @@
   doppler_map = DopplerMap(result.image, grid)
   plot_map_slices(
       doppler_map,
-      "output_images/Doppler_Map.png",
+      "output_images/Doppler_Map.pdf",
       vz_values=[-900.0, -500.0, 0.0, 500.0, 900.0],
   )
   plot_map_projection(
       doppler_map,
-      "output_images/Doppler_Map_Projection.png",
+      "output_images/Doppler_Map_Projection.pdf",
       method="sum",
   )
   ```
 
   <p align="middle">
-     <img src="pydoppler3d/test_data/output_images/Doppler_Map.png" width="720" height="500" />
+     <img src="docs/readme_images/Doppler_Map.svg" width="720" height="500" />
   </p>
 
   For exploratory 3D inspection, use the static cube overview and the
@@ -326,7 +326,7 @@
 
   save_volume_scatter_preview(
       doppler_map,
-      "output_images/Doppler_Map_3D_Preview.png",
+      "output_images/Doppler_Map_3D_Preview.pdf",
   )
   plot_map_volume_html(
       doppler_map,
@@ -337,7 +337,7 @@
   ```
 
   <p align="middle">
-     <img src="pydoppler3d/test_data/output_images/Doppler_Map_3D_Preview.png" width="520" height="450" />
+     <img src="docs/readme_images/Doppler_Map_3D_Preview.svg" width="520" height="450" />
   </p>
 
   The HTML file can be rotated and zoomed in a browser. Use it for exploration,
@@ -361,19 +361,19 @@
   plot_reconstruction(
       spectra,
       model,
-      "output_images/Reconstruction.png",
+      "output_images/Reconstruction.pdf",
       cycles=2,
   )
   plot_residuals(
       spectra,
       model,
-      "output_images/Residuals.png",
+      "output_images/Residuals.pdf",
       cycles=2,
   )
   ```
 
   <p align="middle">
-     <img src="pydoppler3d/test_data/output_images/Reconstruction.png" width="720" height="320" />
+     <img src="docs/readme_images/Reconstruction.svg" width="720" height="320" />
   </p>
 
   ## Section 4: Extra commands
@@ -383,8 +383,8 @@
   ```bash
   pydoppler3d-info
   pydoppler3d-reconstruct v834cen_heii4686_trails.npz Doppler_Map.npz
-  pydoppler3d-plot-trails v834cen_heii4686_trails.npz Trail.png
-  pydoppler3d-plot-map Doppler_Map.npz Doppler_Map.png --vz -600 -300 0 300 600
+  pydoppler3d-plot-trails v834cen_heii4686_trails.npz Trail.pdf
+  pydoppler3d-plot-map Doppler_Map.npz Doppler_Map.pdf --vz -600 -300 0 300 600
   pydoppler3d-plot-volume Doppler_Map.npz Doppler_Map_3D.html
   ```
 
