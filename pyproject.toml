@@ -36,14 +36,14 @@ plot = ["matplotlib>=3.6"]
 volume = ["plotly>=5.0"]
 fits = ["astropy>=5.0"]
 test = ["pytest>=7", "pytest-cov>=5"]
-lint = ["ruff==0.16.5"]
+lint = ["ruff==0.17.0"]
 dev = [
   "astropy>=5.0",
   "build>=1.0",
   "pre-commit>=3.5",
   "pytest>=7",
   "pytest-cov>=5",
-  "ruff==0.16.5",
+  "ruff==0.17.0",
   "matplotlib>=3.6",
   "plotly>=5.0",
 ]
