@@ -34,10 +34,11 @@ def plot_trails(
 
     plt = _pyplot()
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     cycles = max(1, int(cycles))
     order = np.argsort(spectra.phases)
     phases = spectra.phases[order]
-    flux = spectra.flux[order]
+    flux = _masked_flux(spectra)[order]
     if cycles > 1:
         phases = np.concatenate([phases + cycle for cycle in range(cycles)])
         flux = np.vstack([flux for _cycle in range(cycles)])
@@ -47,13 +48,14 @@ def plot_trails(
         phases,
         flux,
         shading="auto",
+        rasterized=True,
         cmap=cmap,
     )
     fig.colorbar(mesh, ax=ax, label="Flux")
     ax.set_xlabel("Velocity (km/s)")
     ax.set_ylabel("Orbital phase")
     ax.set_title(title)
-    fig.savefig(output, dpi=dpi)
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
 
@@ -76,6 +78,7 @@ def plot_average_spectrum(
     average_flux = np.asarray(average_flux, dtype=float)
     continuum = np.asarray(continuum, dtype=float)
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(2, 1, figsize=(6.57, 8.57), constrained_layout=True)
     axes[0].plot(wavelength, average_flux, color="black", lw=1.0)
     if continuum_band is not None:
@@ -94,7 +97,7 @@ def plot_average_spectrum(
             band[2],
             color="tab:orange",
             alpha=0.10,
-            label="Line window",
+            label="Between sidebands",
         )
         axes[0].plot(
             wavelength[local],
@@ -108,7 +111,9 @@ def plot_average_spectrum(
         margin = 0.12 * (band[3] - band[0])
         axes[0].set_xlim(band[0] - margin, band[3] + margin)
     else:
-        axes[0].plot(wavelength, continuum, color="crimson", lw=1.2, label="Continuum fit")
+        axes[0].plot(
+            wavelength, continuum, color="crimson", lw=1.2, label="Continuum fit"
+        )
     axes[0].set_xlabel(r"Wavelength / $\AA$")
     axes[0].set_ylabel("Input flux")
     axes[0].legend(loc="best")
@@ -117,9 +122,27 @@ def plot_average_spectrum(
     axes[1].axhline(0.0, color="0.3", ls="--", lw=0.8)
     axes[1].set_xlabel("Velocity (km/s)")
     axes[1].set_ylabel("Continuum-subtracted flux")
-    fig.savefig(output, dpi=dpi)
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
+
+
+def _map_extent(grid):
+    dx, dy, _ = grid.spacing
+    return (
+        grid.vx[0] - dx / 2,
+        grid.vx[-1] + dx / 2,
+        grid.vy[0] - dy / 2,
+        grid.vy[-1] + dy / 2,
+    )
+
+
+def _masked_flux(spectra):
+    return (
+        np.where(spectra.mask, spectra.flux, np.nan)
+        if spectra.mask is not None
+        else spectra.flux
+    )
 
 
 def _nearest_indices(axis: np.ndarray, values: np.ndarray) -> np.ndarray:
@@ -146,6 +169,7 @@ def plot_map_slices(
 
     plt = _pyplot()
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     image = doppler_map.image
     grid = doppler_map.grid
     if vz_values is None:
@@ -157,7 +181,9 @@ def plot_map_slices(
     finite = np.concatenate([plane[np.isfinite(plane)] for plane in planes])
     if finite.size == 0:
         raise ValueError("map contains no finite values to plot.")
-    vmin = 0.0 if float(np.nanmin(finite)) >= 0.0 else float(np.nanpercentile(finite, 1))
+    vmin = (
+        0.0 if float(np.nanmin(finite)) >= 0.0 else float(np.nanpercentile(finite, 1))
+    )
     vmax = float(np.nanpercentile(finite, percentile))
     if not np.isfinite(vmax) or vmax <= vmin:
         vmax = float(np.nanmax(finite))
@@ -174,7 +200,7 @@ def plot_map_slices(
         constrained_layout=True,
     )
     shown = None
-    extent = (grid.vx[0], grid.vx[-1], grid.vy[0], grid.vy[-1])
+    extent = _map_extent(grid)
     for ax, index, plane in zip(axes.flat, indices, planes, strict=False):
         shown = ax.imshow(
             plane,
@@ -191,8 +217,8 @@ def plot_map_slices(
     for ax in list(axes.flat)[len(indices) :]:
         ax.set_visible(False)
     if shown is not None:
-        fig.colorbar(shown, ax=axes.ravel().tolist(), label="Map intensity")
-    fig.savefig(output, dpi=dpi)
+        fig.colorbar(shown, ax=axes.ravel().tolist(), label="Flux per voxel")
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
 
@@ -209,6 +235,7 @@ def plot_map_projection(
 
     plt = _pyplot()
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     image = doppler_map.image
     grid = doppler_map.grid
     if method == "sum":
@@ -224,121 +251,145 @@ def plot_map_projection(
     shown = ax.imshow(
         plane,
         origin="lower",
-        extent=(grid.vx[0], grid.vx[-1], grid.vy[0], grid.vy[-1]),
+        extent=_map_extent(grid),
         aspect="equal",
         cmap=cmap,
     )
-    fig.colorbar(shown, ax=ax, label="Map intensity")
+    fig.colorbar(
+        shown,
+        ax=ax,
+        label="Flux per (Vx, Vy) cell" if method == "sum" else "Maximum voxel flux",
+    )
     ax.set_xlabel("Vx (km/s)")
     ax.set_ylabel("Vy (km/s)")
     ax.set_title(title)
-    fig.savefig(output, dpi=dpi)
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
 
 
 def plot_reconstruction(
     spectra: TrailedSpectra,
-    model_flux: np.ndarray,
-    output: str | Path,
+    model_flux,
+    output,
     *,
-    cmap: str = "magma",
-    dpi: int = 180,
-    cycles: int = 1,
-) -> Path:
-    """Save input, reconstructed, and residual trailed spectra."""
+    cmap="magma",
+    dpi=180,
+    cycles=1,
+    standardized=False,
+    residual_cmap="RdBu_r",
+):
+    """Observed/model panels share a scale; residuals are centered at zero.
 
+    standardized uses marginal errors, not covariance whitening.
+    """
     plt = _pyplot()
     output = Path(output)
-    model = np.asarray(model_flux, dtype=float)
-    if model.shape != spectra.flux.shape:
-        raise ValueError("model_flux must have the same shape as spectra.flux.")
-    residual = spectra.flux - model
-
+    output.parent.mkdir(parents=True, exist_ok=True)
+    model = np.asarray(model_flux, float)
+    if model.shape != spectra.flux.shape or not np.all(np.isfinite(model)):
+        raise ValueError("model_flux must be finite and match spectra.flux.")
+    observed = _masked_flux(spectra)
+    residual = observed - model
+    if standardized:
+        if spectra.error is None:
+            raise ValueError("standardized residuals require errors.")
+        residual = residual / spectra.error
     order = np.argsort(spectra.phases)
     phases = spectra.phases[order]
-    observed = spectra.flux[order]
-    model = model[order]
-    residual = residual[order]
+    cycles = max(1, int(cycles))
+    arrays = [observed[order], model[order], residual[order]]
     if cycles > 1:
-        phases = np.concatenate([phases + cycle for cycle in range(cycles)])
-        observed = np.vstack([observed for _cycle in range(cycles)])
-        model = np.vstack([model for _cycle in range(cycles)])
-        residual = np.vstack([residual for _cycle in range(cycles)])
-
-    fig, axes = plt.subplots(1, 3, figsize=(13.0, 4.5), constrained_layout=True)
-    panels = [
-        ("Observed trail", observed),
-        ("Reconstructed trail", model),
-        ("Residuals", residual),
-    ]
-    for ax, (title, data) in zip(axes, panels, strict=True):
-        finite = data[np.isfinite(data)]
-        if finite.size:
-            lo, hi = np.nanpercentile(finite, [2.0, 98.0])
-            if hi <= lo:
-                lo, hi = float(np.nanmin(finite)), float(np.nanmax(finite))
-        else:
-            lo, hi = 0.0, 1.0
+        phases = np.concatenate([phases + j for j in range(cycles)])
+        arrays = [np.vstack([a] * cycles) for a in arrays]
+    joined = np.concatenate([arrays[0].ravel(), arrays[1].ravel()])
+    lo, hi = np.nanpercentile(joined, [2, 98])
+    if hi <= lo:
+        hi = lo + (abs(lo) or 1.0)
+    limit = float(np.nanpercentile(np.abs(arrays[2]), 98)) or 1.0
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5), constrained_layout=True)
+    for k, (ax, title, data) in enumerate(
+        zip(
+            axes,
+            ("Observed trail", "Reconstructed trail", "Residuals"),
+            arrays,
+            strict=True,
+        )
+    ):
         mesh = ax.pcolormesh(
             spectra.velocity,
             phases,
             data,
             shading="auto",
-            cmap=cmap,
-            vmin=lo,
-            vmax=hi,
+            rasterized=True,
+            cmap=cmap if k < 2 else residual_cmap,
+            vmin=lo if k < 2 else -limit,
+            vmax=hi if k < 2 else limit,
         )
-        fig.colorbar(mesh, ax=ax, label="Flux")
-        ax.set_title(title)
-        ax.set_xlabel("Velocity (km/s)")
-        ax.set_ylabel("Orbital phase")
-    fig.savefig(output, dpi=dpi)
+        fig.colorbar(
+            mesh,
+            ax=ax,
+            label="Residual / marginal error" if k == 2 and standardized else "Flux",
+        )
+        ax.set(title=title, xlabel="Velocity (km/s)", ylabel="Orbital phase")
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
 
 
 def plot_residuals(
     spectra: TrailedSpectra,
-    model_flux: np.ndarray,
-    output: str | Path,
+    model_flux,
+    output,
     *,
-    cmap: str = "magma",
-    dpi: int = 180,
-    cycles: int = 1,
-) -> Path:
-    """Save a residual trailed-spectrum heatmap."""
-
+    cmap="RdBu_r",
+    dpi=180,
+    cycles=1,
+    standardized=False,
+):
+    """Residual heatmap; standardized values use marginal, not whitened, errors."""
     plt = _pyplot()
     output = Path(output)
-    model = np.asarray(model_flux, dtype=float)
-    if model.shape != spectra.flux.shape:
-        raise ValueError("model_flux must have the same shape as spectra.flux.")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    model = np.asarray(model_flux, float)
+    if model.shape != spectra.flux.shape or not np.all(np.isfinite(model)):
+        raise ValueError("model_flux must be finite and match spectra.flux.")
+    residual = _masked_flux(spectra) - model
+    if standardized:
+        if spectra.error is None:
+            raise ValueError("standardized residuals require errors.")
+        residual = residual / spectra.error
     order = np.argsort(spectra.phases)
-    residual = (spectra.flux - model)[order]
-    phases = spectra.phases[order]
+    phases, residual = spectra.phases[order], residual[order]
+    cycles = max(1, int(cycles))
     if cycles > 1:
-        phases = np.concatenate([phases + cycle for cycle in range(cycles)])
-        residual = np.vstack([residual for _cycle in range(cycles)])
-    vmax = float(np.nanpercentile(np.abs(residual[np.isfinite(residual)]), 98.0))
-    if not np.isfinite(vmax) or vmax <= 0:
-        vmax = 1.0
-
+        phases = np.concatenate([phases + j for j in range(cycles)])
+        residual = np.vstack([residual] * cycles)
+    limit = float(np.nanpercentile(np.abs(residual), 98)) or 1.0
     fig, ax = plt.subplots(figsize=(8.5, 5.2), constrained_layout=True)
     mesh = ax.pcolormesh(
         spectra.velocity,
         phases,
         residual,
         shading="auto",
+        rasterized=True,
         cmap=cmap,
-        vmin=-vmax,
-        vmax=vmax,
+        vmin=-limit,
+        vmax=limit,
     )
-    fig.colorbar(mesh, ax=ax, label="Observed - reconstructed")
-    ax.set_xlabel("Velocity (km/s)")
-    ax.set_ylabel("Orbital phase")
-    ax.set_title("Residual trailed spectra")
-    fig.savefig(output, dpi=dpi)
+    fig.colorbar(
+        mesh,
+        ax=ax,
+        label="Residual / marginal error"
+        if standardized
+        else "Observed - reconstructed",
+    )
+    ax.set(
+        xlabel="Velocity (km/s)",
+        ylabel="Orbital phase",
+        title="Residual trailed spectra",
+    )
+    fig.savefig(output, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return output
 
@@ -363,6 +414,7 @@ def plot_map_volume_html(
         ) from exc
 
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     image = np.asarray(doppler_map.image, dtype=float)
     grid = doppler_map.grid
     step = max(1, int(np.ceil((image.size / max_voxels) ** (1.0 / 3.0))))
@@ -409,7 +461,7 @@ def plot_map_volume_html(
         },
         margin={"l": 0, "r": 0, "t": 45, "b": 0},
     )
-    fig.write_html(output, include_plotlyjs="cdn")
+    fig.write_html(output, include_plotlyjs=True)
     return output
 
 
@@ -427,13 +479,16 @@ def save_volume_scatter_preview(
 
     plt = _pyplot()
     output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     image = np.asarray(doppler_map.image, dtype=float)
     grid = doppler_map.grid
     finite = image[np.isfinite(image)]
     if finite.size == 0:
         raise ValueError("map contains no finite values to plot.")
 
-    vmin = 0.0 if float(np.nanmin(finite)) >= 0.0 else float(np.nanpercentile(finite, 1.0))
+    vmin = (
+        0.0 if float(np.nanmin(finite)) >= 0.0 else float(np.nanpercentile(finite, 1.0))
+    )
     vmax = float(np.nanpercentile(finite, percentile))
     if not np.isfinite(vmax) or vmax <= vmin:
         vmax = float(np.nanmax(finite))
@@ -531,7 +586,7 @@ def save_volume_scatter_preview(
         ax=ax,
         shrink=0.72,
         pad=0.08,
-        label="Map intensity (percentile-clipped)",
+        label="Flux per voxel (percentile-clipped)",
     )
     ax.set_xlabel("Vx (km/s)")
     ax.set_ylabel("Vy (km/s)")

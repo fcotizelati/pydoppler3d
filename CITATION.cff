@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "Please cite this software and the method/data papers listed in the README."
+title: PyDoppler3D
+type: software
+authors:
+  - family-names: Coti Zelati
+    given-names: Francesco
+version: 0.2.0
+repository-code: https://github.com/fcotizelati/pydoppler3d
+license: MIT
+abstract: "Experimental three-dimensional Doppler tomography of phase-resolved emission-line profiles."

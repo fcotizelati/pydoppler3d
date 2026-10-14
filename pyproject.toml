@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydoppler3d"
-version = "0.1.0"
+version = "0.2.0"
 description = "Prototype 3D Doppler tomography tools for phase-resolved line profiles"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,14 +36,14 @@ plot = ["matplotlib>=3.6"]
 volume = ["plotly>=5.0"]
 fits = ["astropy>=5.0"]
 test = ["pytest>=7", "pytest-cov>=5"]
-lint = ["ruff>=0.6"]
+lint = ["ruff==0.16.5"]
 dev = [
   "astropy>=5.0",
   "build>=1.0",
   "pre-commit>=3.5",
   "pytest>=7",
   "pytest-cov>=5",
-  "ruff>=0.6",
+  "ruff==0.16.5",
   "matplotlib>=3.6",
   "plotly>=5.0",
 ]
@@ -72,15 +72,15 @@ pydoppler3d = [
   "test_data/v834cen/*",
   "test_data/v834cen/spectra/*",
   "test_data/output_images/*.pdf",
+  "test_data/output_images/*.json",
+  "test_data/output_images/*.md",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
 [tool.coverage.run]
-omit = [
-  "pydoppler3d/visualize.py",
-]
+branch = true
 
 [tool.ruff]
 target-version = "py310"

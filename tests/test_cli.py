@@ -36,6 +36,7 @@ def test_reconstruct_main_writes_doppler_map(tmp_path):
             "80",
             "--vlim-z",
             "40",
+            "--allow-incomplete",
             "--iterations",
             "2",
             "--alpha",

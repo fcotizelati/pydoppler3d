@@ -8,15 +8,21 @@ from scipy.ndimage import gaussian_filter
 from .geometry import VelocityGrid3D
 
 
-def _fwhm_to_sigma_pix(fwhm_kms: float | tuple[float, float, float], grid: VelocityGrid3D):
+def _fwhm_to_sigma_pix(
+    fwhm_kms: float | tuple[float, float, float], grid: VelocityGrid3D
+):
     if np.isscalar(fwhm_kms):
         fwhm = (float(fwhm_kms),) * 3
     else:
         fwhm = tuple(float(value) for value in fwhm_kms)
         if len(fwhm) != 3:
             raise ValueError("fwhm_kms must be scalar or length 3.")
+    if not np.all(np.isfinite(fwhm)) or np.any(np.asarray(fwhm) < 0):
+        raise ValueError("smoothing FWHM must be finite and nonnegative.")
     factor = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    return tuple(max(0.0, value / (factor * step)) for value, step in zip(fwhm, grid.spacing))
+    return tuple(
+        max(0.0, value / (factor * step)) for value, step in zip(fwhm, grid.spacing)
+    )
 
 
 def _preserve_total(reference: np.ndarray, candidate: np.ndarray) -> np.ndarray:
@@ -36,6 +42,8 @@ def gaussian_default(
     """Return an isotropically or anisotropically blurred default map."""
 
     image = np.asarray(cube, dtype=float)
+    if not np.all(np.isfinite(image)) or np.any(image < 0):
+        raise ValueError("default images must be finite and nonnegative.")
     if image.shape != grid.shape:
         raise ValueError(f"cube shape {image.shape} does not match grid {grid.shape}.")
     sigma = _fwhm_to_sigma_pix(fwhm_kms, grid)
@@ -61,11 +69,15 @@ def squeezed_default(
     """
 
     image = np.asarray(cube, dtype=float)
+    if not np.all(np.isfinite(image)) or np.any(image < 0):
+        raise ValueError("default images must be finite and nonnegative.")
     if image.shape != grid.shape:
         raise ValueError(f"cube shape {image.shape} does not match grid {grid.shape}.")
+    if not np.isfinite(fwhm_xy_kms) or fwhm_xy_kms < 0:
+        raise ValueError("fwhm_xy_kms must be finite and nonnegative.")
     if not 0.0 <= pull <= 1.0:
         raise ValueError("pull must be between 0 and 1.")
-    if sigma_vz_kms <= 0:
+    if not np.isfinite(sigma_vz_kms) or sigma_vz_kms <= 0:
         raise ValueError("sigma_vz_kms must be positive.")
 
     total_xy = np.sum(image, axis=2)
@@ -74,9 +86,17 @@ def squeezed_default(
     centroid = np.where(np.isfinite(centroid), centroid, 0.0)
 
     dz = grid.vz.reshape(1, 1, -1) - centroid[:, :, None]
-    weights = np.exp(-0.5 * (dz / float(sigma_vz_kms)) ** 2)
+    distance = np.abs(dz)
+    nearest = np.min(distance, axis=2, keepdims=True)
+    # Subtract the nearest squared distance before scaling; even subnormal
+    # sigma leaves the nearest node at log weight zero instead of inf-inf.
+    difference = (distance - nearest) * (distance + nearest)
+    with np.errstate(over="ignore", under="ignore"):
+        weights = np.exp(-0.5 * (difference / sigma_vz_kms) / sigma_vz_kms)
     weights_sum = np.sum(weights, axis=2, keepdims=True)
-    weights = np.divide(weights, weights_sum, out=np.zeros_like(weights), where=weights_sum > 0)
+    weights = np.divide(
+        weights, weights_sum, out=np.zeros_like(weights), where=weights_sum > 0
+    )
     squeezed = total_xy[:, :, None] * weights
 
     if fwhm_xy_kms > 0:

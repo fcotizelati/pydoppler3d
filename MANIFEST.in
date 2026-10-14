@@ -1,0 +1,7 @@
+include README.md LICENSE NOTICE CONTRIBUTING.md CHANGELOG.md CITATION.cff sample_script.py .pre-commit-config.yaml
+recursive-include docs *.md *.json *.svg
+recursive-include benchmarks *.py
+recursive-include tests *.py
+recursive-include .github *.md *.yml
+recursive-include pydoppler3d/test_data *
+global-exclude __pycache__ *.py[cod] .DS_Store

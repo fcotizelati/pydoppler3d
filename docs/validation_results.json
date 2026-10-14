@@ -1,0 +1,122 @@
+{
+  "package_version": "0.2.0",
+  "python": "3.14.8",
+  "numpy": "2.5.4",
+  "scipy": "1.17.1",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "seed": 901,
+  "iteration_budget": 800,
+  "phase_quadrature_nodes": 15,
+  "native_simulation_exposure_samples": 301,
+  "noise_sigma": 0.015,
+  "source_sha256": {
+    "pydoppler3d/__init__.py": "c106a98acce8120863cb7c14716aa4f7faa673726780cb7db8ae9304b6d85a01",
+    "pydoppler3d/_version.py": "2fe7b66dd2c4d5ecb471b90a3a8eda4bfdcc6c160fc53fe457c8dfc345c4a196",
+    "pydoppler3d/cli.py": "ae497f20d263719adb766fe7bc765739da900a42901187b9d2b6c47cf40c6ba7",
+    "pydoppler3d/components.py": "688fa9a3ca51a909da8b220f2c6bfcb54b749b5d0c322c3f078cad0db2d1c0b3",
+    "pydoppler3d/convolution.py": "9bbaaedc7f8b33168adaf989f2062bd9205243cd30e736f4277262e2296c0f4c",
+    "pydoppler3d/data.py": "0f9532ea5cff9f7e6b5a00517274cd89c61b53504ab624be95a5636f3eae5b82",
+    "pydoppler3d/defaults.py": "acfdd702f094e9ee814ba7b1522d541a7e4a69fad419fd481382f5ed0d99f766",
+    "pydoppler3d/geometry.py": "56ea17eaef4243ff832e9b9b735a8bf7f6f91d7fe9028cd8e96065e61fa1e158",
+    "pydoppler3d/project.py": "33270eac5d701c91bc524cb263c9c969b68db74287db54426074fd8d0f013fc9",
+    "pydoppler3d/provenance.py": "63c78177021516fe31cfb11b7d0bee2564444c3e97d657ccb526628e8d1171bb",
+    "pydoppler3d/pydoppler_compat.py": "984ddddd8fbee67449d88ef169eef90fcc10f633ed5d44c8e8b9cc77947744e2",
+    "pydoppler3d/reconstruct.py": "030230a2ba90e230eb4dcb997e0ec6ee740743c179135cd6f0f06b44dc409d81",
+    "pydoppler3d/sample_data.py": "abfc3780b7cdc42e2e3e6a81d1c8ced81d8726ae7a7cb81b8d6517f2991922dd",
+    "pydoppler3d/visualize.py": "e42ab667eb1ad73d83e7f9cea43cc3a0f3cb25916dd9461016abc74f00c2d158"
+  },
+  "benchmark_script_sha256": "eb13266fbcaaa71a759ef63e939d9bd7faffdda860f21d601904719a13ea2e5f",
+  "cases": [
+    {
+      "case": "off_plane",
+      "seconds": 9.329325000056997,
+      "mean_chi2": 1.0992114912449023,
+      "status": "iteration_limit",
+      "success": false,
+      "iterations": 800,
+      "model_vs_truth_rms_in_sigma": 0.428720594023327,
+      "vz_centroid_kms": 42.66923836056113,
+      "vz_rms_kms": 84.74198115091798
+    },
+    {
+      "case": "gaussian_default",
+      "seconds": 9.242936042021029,
+      "mean_chi2": 1.086540545286056,
+      "status": "iteration_limit",
+      "success": false,
+      "iterations": 800,
+      "model_vs_truth_rms_in_sigma": 0.41831187802280684,
+      "vz_centroid_kms": 42.17806369056747,
+      "vz_rms_kms": 91.53842888766196
+    },
+    {
+      "case": "planar_source",
+      "seconds": 9.338866957928985,
+      "mean_chi2": 1.0697539102890976,
+      "status": "iteration_limit",
+      "success": false,
+      "iterations": 800,
+      "model_vs_truth_rms_in_sigma": 0.38093945696122283,
+      "vz_centroid_kms": -1.5434025468083103,
+      "vz_rms_kms": 67.91132316443081
+    },
+    {
+      "case": "phase_gaps",
+      "seconds": 6.588663375005126,
+      "mean_chi2": 1.1046489427883652,
+      "status": "iteration_limit",
+      "success": false,
+      "iterations": 800,
+      "model_vs_truth_rms_in_sigma": 0.4256440209685299,
+      "vz_centroid_kms": 44.81596497230143,
+      "vz_rms_kms": 84.35670727982165
+    },
+    {
+      "case": "modulated_misspecification",
+      "seconds": 5.071476957993582,
+      "mean_chi2": 2.007665037026205,
+      "status": "converged",
+      "success": true,
+      "iterations": 424,
+      "model_vs_truth_rms_in_sigma": 1.0363039378366818,
+      "vz_centroid_kms": 25.393682174328045,
+      "vz_rms_kms": 111.56097123837345
+    },
+    {
+      "case": "wrong_resolution",
+      "seconds": 9.204358833958395,
+      "mean_chi2": 0.8637996233465735,
+      "status": "iteration_limit",
+      "success": false,
+      "iterations": 800,
+      "model_vs_truth_rms_in_sigma": 0.3054834603208024,
+      "vz_centroid_kms": 42.72745365074547,
+      "vz_rms_kms": 80.97327179960774
+    },
+    {
+      "case": "2d_projected_baseline",
+      "seconds": 0.7003806249704212,
+      "mean_chi2": 11.93425173724212,
+      "status": "converged",
+      "success": true,
+      "iterations": 171,
+      "model_vs_truth_rms_in_sigma": 3.3313500505264555,
+      "vz_centroid_kms": null,
+      "vz_rms_kms": null
+    }
+  ],
+  "cache_benchmark": {
+    "0": {
+      "setup_seconds": 0.0001297079725190997,
+      "20_forward_adjoint_seconds": 0.06852291605900973,
+      "cache_bytes": 0
+    },
+    "67108864": {
+      "setup_seconds": 0.001507209031842649,
+      "20_forward_adjoint_seconds": 0.013740250025875866,
+      "cache_bytes": 1776864
+    }
+  },
+  "interpretation": "Simulation diagnostics, not calibrated detection significances or unique cube recovery.",
+  "external_reference_benchmark": "Not performed: MEMSYS/trm-doppler is a separate optional native toolchain."
+}

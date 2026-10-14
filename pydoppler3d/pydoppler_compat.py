@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
 import numpy as np
 
+from ._version import __version__
 from .data import TrailedSpectra
 from .geometry import CLIGHT_KMS, line_velocity_axis
 
@@ -47,190 +49,230 @@ def _read_phase_file(path: Path):
 
 
 def _read_spectrum(path: Path):
-    data = np.loadtxt(path, comments="#")
-    if data.ndim == 1:
-        data = data.reshape(1, -1)
-    if data.ndim != 2 or data.shape[1] < 2:
-        raise ValueError(f"{path} must contain wavelength and flux columns.")
-    wave = np.asarray(data[:, 0], dtype=float)
-    flux = np.asarray(data[:, 1], dtype=float)
-    error = np.asarray(data[:, 2], dtype=float) if data.shape[1] >= 3 else None
-
+    data = np.loadtxt(path, comments="#", ndmin=2)
+    if data.shape[1] < 2 or data.shape[0] < 2:
+        raise ValueError(f"{path} requires at least two wavelength/flux samples.")
+    wave, flux = data[:, 0], data[:, 1]
+    error = data[:, 2] if data.shape[1] >= 3 else None
+    if not np.all(np.isfinite(data[:, :3])) or np.any(wave <= 0):
+        raise ValueError(f"{path} contains nonfinite data or invalid wavelengths.")
+    if error is not None and np.any(error <= 0):
+        raise ValueError(f"{path} errors must be positive.")
     order = np.argsort(wave)
-    wave = wave[order]
-    flux = flux[order]
-    if error is not None:
-        error = error[order]
-
-    good = np.isfinite(wave) & np.isfinite(flux)
-    if error is not None:
-        good &= np.isfinite(error)
-    wave = wave[good]
-    flux = flux[good]
-    if error is not None:
-        error = error[good]
-    if wave.size < 2:
-        raise ValueError(f"{path} contains fewer than two finite samples.")
-
-    if np.any(np.diff(wave) <= 0):
+    wave, flux = wave[order], flux[order]
+    error = None if error is None else error[order]
+    if np.any(np.diff(wave) == 0):
+        if error is None:
+            raise ValueError(
+                "duplicate wavelengths require supplied native errors for propagation."
+            )
         unique, inverse = np.unique(wave, return_inverse=True)
-        counts = np.bincount(inverse).astype(float)
+        counts = np.bincount(inverse)
         flux = np.bincount(inverse, weights=flux) / counts
         if error is not None:
             error = np.sqrt(np.bincount(inverse, weights=error**2)) / counts
         wave = unique
+    if wave.size < 2:
+        raise ValueError("at least two unique wavelengths are required.")
     return wave, flux, error
 
 
 def _common_grid(loaded):
-    overlap_min = float(max(wave[0] for _name, wave, _flux, _error in loaded))
-    overlap_max = float(min(wave[-1] for _name, wave, _flux, _error in loaded))
-    if overlap_min >= overlap_max:
-        raise ValueError("input spectra do not share a common wavelength overlap.")
-
-    counts = [
-        int(np.count_nonzero((wave >= overlap_min) & (wave <= overlap_max)))
-        for _name, wave, _flux, _error in loaded
-    ]
-    ref = int(np.argmax(counts))
-    wave = loaded[ref][1]
-    grid = np.asarray(wave[(wave >= overlap_min) & (wave <= overlap_max)], dtype=float)
+    lower = max(row[1][0] for row in loaded)
+    upper = min(row[1][-1] for row in loaded)
+    if lower >= upper:
+        raise ValueError("input spectra do not share a wavelength overlap.")
+    candidates = [row[1][(row[1] >= lower) & (row[1] <= upper)] for row in loaded]
+    grid = max(candidates, key=len)
     if grid.size < 2:
-        raise ValueError("common wavelength overlap contains fewer than two samples.")
+        raise ValueError("common overlap has fewer than two samples.")
     return grid
 
 
-def _auto_continuum_band(wavelength: np.ndarray):
-    window = max(3, int(round(0.05 * wavelength.size)))
-    left = wavelength[:window]
-    right = wavelength[-window:]
-    return (float(left.min()), float(left.max()), float(right.min()), float(right.max()))
+def _interpolation_matrix(source, target):
+    """Linear interpolation transform, including both endpoints."""
+    if np.any(target < source[0]) or np.any(target > source[-1]):
+        raise ValueError(
+            "interpolation targets must be within native wavelength coverage."
+        )
+    lower = np.clip(
+        np.searchsorted(source, target, side="right") - 1, 0, len(source) - 2
+    )
+    frac = (target - source[lower]) / (source[lower + 1] - source[lower])
+    matrix = np.zeros((len(target), len(source)))
+    matrix[np.arange(len(target)), lower] = 1 - frac
+    matrix[np.arange(len(target)), lower + 1] = frac
+    return matrix
 
 
 def load_pydoppler_dataset(
     base_dir: str | Path,
     *,
-    list_file: str = "ugem0all.fas",
-    spectra_dir: str | Path | None = None,
-    lam0: float = 6562.8,
-    delw: float = 35.0,
-    gamma: float = 36.0,
+    list_file="ugem0all.fas",
+    spectra_dir=None,
+    lam0=6562.8,
+    delw=35.0,
+    gamma=36.0,
     continuum_band: Sequence[float] | None = (6500.0, 6537.0, 6591.0, 6620.0),
-    poly_degree: int = 2,
+    poly_degree=2,
+    propagate_covariance=True,
 ) -> PyDopplerPreparedData:
-    """Load and continuum-subtract a PyDoppler-style text dataset.
+    """Fit a native-grid continuum and propagate its linear transform exactly.
 
-    The input layout is the same one used by classic :mod:`pydoppler`: a phase
-    file with ``spectrum_name phase [delta_phase]`` rows and individual
-    whitespace-separated spectra with ``wavelength flux [error]`` columns.
+    Input wavelengths and continuum windows share the observed frame. gamma
+    is removed once using the longitudinal relativistic Doppler factor.
+    Outputs retain signed flux. The velocity grid is uniformly sampled; flux
+    is a discrete spectral-bin value in the input ordinate units (not a
+    calibrated integrated line luminosity). Missing native errors are estimated
+    from continuum residuals; this conditional Gaussian estimate is recorded.
+    Full covariance is conditional on independent native errors and the chosen
+    polynomial continuum; it excludes wavelength/calibration/model uncertainty.
     """
-
+    if not np.isfinite(lam0) or lam0 <= 0 or not np.isfinite(delw) or delw <= 0:
+        raise ValueError("lam0 and delw must be positive and finite.")
+    if not np.isfinite(gamma) or abs(gamma) >= CLIGHT_KMS:
+        raise ValueError("gamma must be finite and satisfy |gamma| < c.")
+    if int(poly_degree) != poly_degree or poly_degree < 0:
+        raise ValueError("poly_degree must be a nonnegative integer.")
+    poly_degree = int(poly_degree)
     base = Path(base_dir)
     list_path = Path(list_file)
-    if not list_path.is_absolute():
-        list_path = base / list_path
-    rows = _read_phase_file(list_path)
+    rows = _read_phase_file(list_path if list_path.is_absolute() else base / list_path)
     spectrum_base = base if spectra_dir is None else base / spectra_dir
-    loaded = []
-    for filename, _phase, _exposure in rows:
-        spectrum_path = Path(filename)
-        if not spectrum_path.is_absolute():
-            spectrum_path = spectrum_base / spectrum_path
-        wave, flux, error = _read_spectrum(spectrum_path)
-        loaded.append((filename, wave, flux, error))
-
+    loaded = [(name, *_read_spectrum(spectrum_base / name)) for name, _, _ in rows]
     wavelength = _common_grid(loaded)
-    fluxes = []
-    errors = []
-    for _filename, wave, flux, error in loaded:
-        fluxes.append(np.interp(wavelength, wave, flux))
-        if error is None:
-            errors.append(None)
-        else:
-            errors.append(np.sqrt(np.interp(wavelength, wave, error**2)))
-    flux = np.vstack(fluxes)
-
-    phases = np.asarray([row[1] for row in rows], dtype=float)
-    exposure = np.asarray([row[2] for row in rows], dtype=float)
-    if not np.any(np.isfinite(exposure)):
-        exposure_out = None
-    else:
-        fill = float(np.nanmedian(exposure[np.isfinite(exposure)]))
-        exposure_out = np.where(np.isfinite(exposure), exposure, fill)
-
-    if continuum_band is None:
-        band = _auto_continuum_band(wavelength)
-    else:
-        if len(continuum_band) != 4:
-            raise ValueError("continuum_band must contain four wavelength limits.")
-        band = tuple(float(value) for value in continuum_band)
-    mask = ((wavelength > band[0]) & (wavelength < band[1])) | (
-        (wavelength > band[2]) & (wavelength < band[3])
+    flux = np.vstack(
+        [np.interp(wavelength, wave, native) for _, wave, native, _ in loaded]
     )
-    if np.count_nonzero(mask) < max(poly_degree + 1, 3):
-        raise ValueError("continuum windows contain too few wavelength samples.")
-
+    phases = np.asarray([r[1] for r in rows])
+    exposure = np.asarray([r[2] for r in rows])
+    if np.all(np.isnan(exposure)):
+        exposure = None
+    elif np.any(~np.isfinite(exposure)):
+        raise ValueError("provide exposure widths for every spectrum or omit them all.")
+    if continuum_band is None:
+        count = min(max(3, int(round(0.05 * len(wavelength)))), len(wavelength) // 2)
+        continuum_band = (
+            wavelength[0],
+            wavelength[count - 1],
+            wavelength[-count],
+            wavelength[-1],
+        )
+    band = tuple(float(v) for v in continuum_band)
+    if len(band) != 4 or not np.all(np.isfinite(band)) or not np.all(np.diff(band) > 0):
+        raise ValueError("continuum_band must contain four increasing finite limits.")
     beta = gamma / CLIGHT_KMS
-    if abs(beta) >= 1:
-        raise ValueError("gamma must satisfy |gamma| < c.")
-    doppler_factor = np.sqrt((1.0 + beta) / (1.0 - beta))
-    corrected_wave = wavelength / doppler_factor
-    line_mask = (corrected_wave > lam0 - delw) & (corrected_wave < lam0 + delw)
-    if np.count_nonzero(line_mask) < 2:
-        raise ValueError("no spectral samples fall inside lam0 +/- delw.")
-
-    line_wave = corrected_wave[line_mask]
-    velocity_native = line_velocity_axis(line_wave, lam0)
-    velocity = np.linspace(velocity_native[0], velocity_native[-1], velocity_native.size)
-
-    line_flux = np.zeros((flux.shape[0], velocity.size), dtype=float)
-    line_error = np.zeros_like(line_flux)
-    for index, row in enumerate(flux):
-        coeff = np.polyfit(corrected_wave[mask], row[mask], poly_degree)
-        continuum = np.poly1d(coeff)(line_wave)
-        residual = row[line_mask] - continuum
-        line_flux[index] = np.interp(velocity, velocity_native, residual)
-
-        if errors[index] is None:
-            cont_resid = row[mask] - np.poly1d(coeff)(corrected_wave[mask])
-            sigma = float(np.nanstd(cont_resid))
-            if not np.isfinite(sigma) or sigma <= 0:
-                sigma = 1.0
-            line_error[index] = sigma
-        else:
-            native_error = np.sqrt(np.interp(line_wave, corrected_wave, errors[index] ** 2))
-            line_error[index] = np.interp(velocity, velocity_native, native_error)
-
-    finite_positive = np.isfinite(line_error) & (line_error > 0)
-    floor = float(np.nanmedian(line_error[finite_positive]) * 1e-6)
-    if not np.isfinite(floor) or floor <= 0:
-        floor = 1e-12
-    line_error = np.clip(line_error, floor, None)
-
-    average_flux = np.mean(flux, axis=0)
-    average_coeff = np.polyfit(corrected_wave[mask], average_flux[mask], poly_degree)
-    average_continuum = np.poly1d(average_coeff)(wavelength)
-    average_line_flux = np.mean(line_flux, axis=0)
-
+    factor = np.sqrt((1 + beta) / (1 - beta))
+    corrected = wavelength / factor
+    line = (corrected > lam0 - delw) & (corrected < lam0 + delw)
+    if line.sum() < 2:
+        raise ValueError("line window contains fewer than two samples.")
+    native_velocity = line_velocity_axis(corrected[line], lam0)
+    velocity = np.linspace(
+        native_velocity[0], native_velocity[-1], len(native_velocity)
+    )
+    target = lam0 * np.sqrt((1 + velocity / CLIGHT_KMS) / (1 - velocity / CLIGHT_KMS))
+    # Roundoff at endpoints must not imply extrapolation.
+    target[0], target[-1] = corrected[line][0], corrected[line][-1]
+    line_flux, line_error, covariances, continua, estimated = [], [], [], [], []
+    center, width = (band[0] + band[3]) / (2 * factor), (band[3] - band[0]) / factor
+    for name, wave, native, error in loaded:
+        side = ((wave > band[0]) & (wave < band[1])) | (
+            (wave > band[2]) & (wave < band[3])
+        )
+        if side.sum() <= poly_degree + 1:
+            raise ValueError(
+                f"{name}: continuum requires more samples than fitted coefficients."
+            )
+        corrected_native = wave / factor
+        design = np.polynomial.polynomial.polyvander(
+            (corrected_native - center) / width, poly_degree
+        )
+        xside = design[side]
+        if np.linalg.matrix_rank(xside) != poly_degree + 1:
+            raise ValueError("continuum design is rank deficient.")
+        is_estimated = error is None
+        if is_estimated:
+            residual = (
+                native[side]
+                - xside @ np.linalg.lstsq(xside, native[side], rcond=None)[0]
+            )
+            sigma = float(np.sqrt(np.sum(residual**2) / (side.sum() - poly_degree - 1)))
+            if not np.isfinite(sigma) or sigma <= np.max(np.abs(native[side])) * 1e-14:
+                raise ValueError(
+                    f"{name}: cannot estimate noise from a noise-free continuum; provide errors."
+                )
+            error = np.full_like(native, sigma)
+        # Rescale errors before weighted least squares to avoid tiny-flux conditioning.
+        relative = error[side] / np.median(error[side])
+        fit = np.linalg.pinv(xside / relative[:, None]) / relative[None, :]
+        coeff = fit @ native[side]
+        target_design = np.polynomial.polynomial.polyvander(
+            (target - center) / width, poly_degree
+        )
+        transform = _interpolation_matrix(corrected_native, target)
+        transform[:, side] -= target_design @ fit
+        values = transform @ native
+        weighted = transform * error[None, :]
+        variances = np.sum(weighted**2, axis=1)
+        line_flux.append(values)
+        line_error.append(np.sqrt(variances))
+        if propagate_covariance:
+            covariances.append(weighted @ weighted.T)
+        display_design = np.polynomial.polynomial.polyvander(
+            (corrected - center) / width, poly_degree
+        )
+        continua.append(display_design @ coeff)
+        estimated.append(is_estimated)
+    meta = {
+        "format_version": 2,
+        "package_version": __version__,
+        "source_directory": str(base.resolve()),
+        "filenames": [r[0] for r in rows],
+        "source_sha256": {
+            name: hashlib.sha256((spectrum_base / name).read_bytes()).hexdigest()
+            for name, *_ in rows
+        },
+        "lam0": float(lam0),
+        "delw": float(delw),
+        "gamma_removed_kms": float(gamma),
+        "velocity_frame": "systemic_corrected",
+        "velocity_units": "km/s",
+        "phase_units": "cycle",
+        "exposure_units": "cycle",
+        "flux_units": "input_ordinate_per_discrete_spectral_bin",
+        "continuum_band_observed": list(band),
+        "poly_degree": poly_degree,
+        "estimated_native_errors": estimated,
+        "noise_assumption": "independent_native_gaussian_conditional_on_continuum",
+        "covariance_policy": "full_linear_propagation"
+        if propagate_covariance
+        else "diagonal_approximation",
+        "exposure_policy": "instantaneous_unknown"
+        if exposure is None
+        else "provided_cycle_widths",
+    }
     spectra = TrailedSpectra(
-        phases=phases,
-        velocity=velocity,
-        flux=line_flux,
-        error=line_error,
-        exposure=exposure_out,
+        phases,
+        velocity,
+        np.asarray(line_flux),
+        error=np.asarray(line_error),
+        exposure=exposure,
+        meta=meta,
+        covariance=np.asarray(covariances) if propagate_covariance else None,
     )
     return PyDopplerPreparedData(
-        spectra=spectra,
-        wavelength=wavelength,
-        flux=flux,
-        filenames=np.asarray([row[0] for row in rows], dtype=str),
-        average_flux=average_flux,
-        continuum=average_continuum,
-        average_line_flux=average_line_flux,
-        continuum_band=band,
-        lam0=float(lam0),
-        delw=float(delw),
-        gamma=float(gamma),
+        spectra,
+        wavelength,
+        flux,
+        np.asarray([r[0] for r in rows]),
+        np.mean(flux, axis=0),
+        np.mean(continua, axis=0),
+        np.mean(line_flux, axis=0),
+        band,
+        float(lam0),
+        float(delw),
+        float(gamma),
     )
 
 

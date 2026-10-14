@@ -8,7 +8,7 @@ from typing import Iterable, Literal
 import numpy as np
 
 from .geometry import VelocityGrid3D
-from .project import back_project, project_cube
+from .project import ProjectionOperator
 
 ComponentKind = Literal[
     "constant",
@@ -58,53 +58,48 @@ def phase_weight(kind: ComponentKind, phases: np.ndarray) -> np.ndarray:
 def project_components(
     components: Iterable[MapComponent],
     grid: VelocityGrid3D,
-    phases: np.ndarray,
-    velocity_axis: np.ndarray,
-    *,
-    inclination_deg: float = 90.0,
-    gamma: float = 0.0,
-    instrumental_fwhm: float | None = None,
+    phases,
+    velocity_axis,
+    **response,
 ) -> np.ndarray:
-    """Project signed and modulated components into profiles."""
-
-    phases = np.asarray(phases, dtype=float)
-    profiles = np.zeros((phases.size, np.asarray(velocity_axis).size), dtype=float)
+    """Project components; modulation is averaged within each exposure."""
+    operator = ProjectionOperator(grid, phases, velocity_axis, **response)
+    profiles = np.zeros(operator.profile_shape)
     for component in components:
-        model = project_cube(
-            component.image,
-            grid,
-            phases,
-            velocity_axis,
-            inclination_deg=inclination_deg,
-            gamma=gamma,
-            instrumental_fwhm=instrumental_fwhm,
+        if not np.isfinite(component.scale):
+            raise ValueError("component scale must be finite.")
+        weights = float(component.scale) * phase_weight(
+            component.kind, operator.sample_phases
         )
-        profiles += float(component.scale) * phase_weight(component.kind, phases)[:, None] * model
+        profiles += operator.forward(component.image, phase_weights=weights)
     return profiles
 
 
 def back_project_components(
-    residuals: np.ndarray,
+    residuals,
     kinds: Iterable[ComponentKind],
     grid: VelocityGrid3D,
-    phases: np.ndarray,
-    velocity_axis: np.ndarray,
+    phases,
+    velocity_axis,
     *,
-    inclination_deg: float = 90.0,
-    gamma: float = 0.0,
+    scales=None,
+    **response,
 ) -> dict[ComponentKind, np.ndarray]:
-    """Back-project residuals for each requested component kind."""
+    """Transpose of project_components for distinct kinds and matching scales.
 
-    phases = np.asarray(phases, dtype=float)
+    scales maps component kinds to the same scalar multipliers used forward.
+    All observing-response keywords must also match the forward call.
+    """
+    operator = ProjectionOperator(grid, phases, velocity_axis, **response)
+    kinds = list(kinds)
+    if len(set(kinds)) != len(kinds):
+        raise ValueError("component kinds must be distinct for dictionary output.")
+    scales = {} if scales is None else scales
     result = {}
     for kind in kinds:
-        weighted = np.asarray(residuals, dtype=float) * phase_weight(kind, phases)[:, None]
-        result[kind] = back_project(
-            weighted,
-            grid,
-            phases,
-            velocity_axis,
-            inclination_deg=inclination_deg,
-            gamma=gamma,
-        )
+        scale = float(scales.get(kind, 1.0))
+        if not np.isfinite(scale):
+            raise ValueError("component scale must be finite.")
+        weights = scale * phase_weight(kind, operator.sample_phases)
+        result[kind] = operator.adjoint(residuals, phase_weights=weights)
     return result

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 from pathlib import Path
 
 from . import __version__
@@ -18,14 +20,18 @@ from .visualize import (
 
 
 def info_main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Show PyDoppler3D package information.")
+    parser = argparse.ArgumentParser(
+        description="Show PyDoppler3D package information."
+    )
     parser.parse_args(argv)
     print(f"pydoppler3d {__version__}")
     print("Backend: pure Python / NumPy / SciPy")
 
 
 def reconstruct_main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Run pure-Python maximum-entropy reconstruction.")
+    parser = argparse.ArgumentParser(
+        description="Run pure-Python maximum-entropy reconstruction."
+    )
     parser.add_argument("input", type=Path, help="Input TrailedSpectra NPZ.")
     parser.add_argument("output", type=Path, help="Output DopplerMap NPZ.")
     parser.add_argument("--nxy", type=int, default=41)
@@ -34,7 +40,32 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--vlim-z", type=float, default=1000.0)
     parser.add_argument("--iterations", type=int, default=50)
     parser.add_argument("--alpha", type=float, default=1e-3)
-    parser.add_argument("--inclination", type=float, default=75.0)
+    parser.add_argument(
+        "--inclination",
+        type=float,
+        required=True,
+        help="True inclination in degrees; explicit scientific input.",
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.0,
+        help="Residual systemic velocity; use zero for gamma-corrected input.",
+    )
+    parser.add_argument(
+        "--fwhm", type=float, default=None, help="Gaussian instrumental FWHM in km/s."
+    )
+    parser.add_argument("--phase-samples", type=int, default=7)
+    parser.add_argument(
+        "--diagonal-errors",
+        action="store_true",
+        help="Explicitly approximate stored covariance by its diagonal.",
+    )
+    parser.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="Return exit code 0 for an explicitly recorded partial fit.",
+    )
     parser.add_argument(
         "--default-updates",
         type=int,
@@ -44,6 +75,8 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--target-chi2", type=float, default=None)
     args = parser.parse_args(argv)
 
+    if args.input.resolve() == args.output.resolve():
+        parser.error("input and output must be different files.")
     spectra = TrailedSpectra.from_npz(args.input)
     grid = VelocityGrid3D.regular(
         vlim_xy=args.vlim_xy,
@@ -57,6 +90,12 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
         spectra.phases,
         spectra.velocity,
         error=spectra.error,
+        covariance=None if args.diagonal_errors else spectra.covariance,
+        mask=spectra.mask,
+        exposure=spectra.exposure,
+        gamma=args.gamma,
+        instrumental_fwhm=args.fwhm,
+        phase_samples=args.phase_samples,
         config=MemConfig(
             iterations=args.iterations,
             alpha=args.alpha,
@@ -65,7 +104,23 @@ def reconstruct_main(argv: list[str] | None = None) -> None:
         ),
         inclination_deg=args.inclination,
     )
-    DopplerMap(result.image, grid).to_npz(args.output)
+    diagnostics = {
+        **result.diagnostics(),
+        "package_version": __version__,
+        "input_path": str(args.input.resolve()),
+        "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
+        "input_metadata": spectra.meta,
+        "diagonal_errors_requested": args.diagonal_errors,
+    }
+    DopplerMap(result.image, grid, meta=diagnostics).to_npz(args.output)
+    args.output.with_suffix(".json").write_text(
+        json.dumps(diagnostics, indent=2, allow_nan=False) + "\n"
+    )
+    print(
+        f"{result.status}: mean chi2={result.chi2_history[-1]:.6g}; iterations={result.n_iterations}; {result.message}"
+    )
+    if not result.success and not args.allow_incomplete:
+        raise SystemExit(2)
 
 
 def plot_trails_main(argv: list[str] | None = None) -> None:
@@ -93,7 +148,9 @@ def plot_map_main(argv: list[str] | None = None) -> None:
 
     doppler_map = DopplerMap.from_npz(args.input)
     if args.projection == "none":
-        plot_map_slices(doppler_map, args.output, vz_values=args.vz, nslices=args.nslices)
+        plot_map_slices(
+            doppler_map, args.output, vz_values=args.vz, nslices=args.nslices
+        )
     else:
         plot_map_projection(doppler_map, args.output, method=args.projection)
 

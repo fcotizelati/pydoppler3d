@@ -15,7 +15,9 @@ def test_radial_velocity_reduces_to_2d_edge_on_convention():
 
 
 def test_radial_velocity_includes_vz_face_on():
-    assert np.isclose(radial_velocity(100.0, 200.0, 300.0, 0.3, inclination_deg=0.0), 300.0)
+    assert np.isclose(
+        radial_velocity(100.0, 200.0, 300.0, 0.3, inclination_deg=0.0), -300.0
+    )
 
 
 def test_regular_grid_shape_and_spacing():

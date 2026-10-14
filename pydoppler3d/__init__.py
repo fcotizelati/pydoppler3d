@@ -1,5 +1,6 @@
 """Prototype 3D Doppler tomography tools."""
 
+from ._version import __version__
 from .components import (
     MapComponent,
     back_project_components,
@@ -10,7 +11,7 @@ from .convolution import convolve_profiles_fft, gaussian_kernel
 from .data import DopplerMap, TrailedSpectra
 from .defaults import gaussian_default, squeezed_default
 from .geometry import VelocityGrid3D, line_velocity_axis, radial_velocity
-from .project import back_project, project_cube
+from .project import ProjectionOperator, back_project, project_cube
 from .pydoppler_compat import load_v834cen_dataset
 from .reconstruct import (
     LandweberConfig,
@@ -33,7 +34,9 @@ from .visualize import (
 )
 
 __all__ = [
+    "__version__",
     "DopplerMap",
+    "ProjectionOperator",
     "LandweberConfig",
     "MapComponent",
     "MemConfig",
@@ -66,5 +69,3 @@ __all__ = [
     "save_volume_scatter_preview",
     "squeezed_default",
 ]
-
-__version__ = "0.1.0"
