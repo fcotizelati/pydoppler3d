@@ -38,7 +38,7 @@ checked-in results explicitly state that a live external solver comparison has
 not been performed. A direct alpha-to-alpha comparison would be inappropriate
 because entropy normalization and stopping formulations differ.
 
-CI tests Python 3.10–3.14, a macOS job, declared minimum core dependencies, optional
+CI tests Python 3.10–3.15, a macOS job, declared minimum core dependencies, optional
 plot/FITS extras, and a wheel installed outside the checkout. The local validation
 record is not evidence that remote GitHub jobs have already run.
 

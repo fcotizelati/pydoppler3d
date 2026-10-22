@@ -1,7 +1,7 @@
 # PyDoppler3D
 
 [![CI](https://github.com/fcotizelati/pydoppler3d/actions/workflows/ci.yml/badge.svg)](https://github.com/fcotizelati/pydoppler3d/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10--3.14-blue)
+![Python](https://img.shields.io/badge/python-3.10--3.15-blue)
 
 Experimental three-dimensional Doppler tomography of phase-resolved emission-line
 spectra, implemented in Python with NumPy and SciPy. Reconstruct a nonnegative
